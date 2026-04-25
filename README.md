@@ -1,5 +1,11 @@
 # T2D Risk Screener
 
+![Python](https://img.shields.io/badge/Python-3.10+-3776ab?logo=python&logoColor=white)
+![License](https://img.shields.io/github/license/tjohns94/cds492-team-3c)
+![ROC-AUC](https://img.shields.io/badge/ROC--AUC-0.817-blue)
+![Sensitivity](https://img.shields.io/badge/Sensitivity-85.2%25-green)
+![NPV](https://img.shields.io/badge/NPV-98.0%25-green)
+
 **Machine learning-based screening for undiagnosed Type 2 Diabetes using ~1 million Korean National Health Insurance Service (NHIS) health checkup records.**
 
 CDS-492 Capstone in Data Science | George Mason University | Spring 2026
