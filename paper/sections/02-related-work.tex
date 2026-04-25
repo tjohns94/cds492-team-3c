@@ -1,0 +1,36 @@
+\section{Related Work}
+\label{sec:related-work}
+
+Prior work on machine learning (ML) for T2D prediction spans clinical risk scoring, supervised learning on tabular health data, and population-level cohort studies.  We organize the literature into four themes and identify the gaps our study addresses.
+
+\subsection{ML for Diabetes Prediction}
+\label{sec:rw-ml-diabetes}
+
+A 33-year bibliometric review by Kiran et~al.\ catalogued thousands of studies applying ML to T2D prediction, documenting a sharp increase in publications after 2015 and a dominant focus on ensemble and deep learning methods~\cite{Kiran2025bibliometric}.  More broadly, Rajkomar et~al.\ surveyed ML adoption across clinical medicine, noting that electronic health records provide a natural substrate for supervised models but that rigorous evaluation and deployment remain challenging~\cite{Rajkomar2019ml}.
+
+Among specific algorithmic families, gradient-boosted tree ensembles---particularly CatBoost and XGBoost---have demonstrated strong performance on tabular health data.  Ganie et~al.\ compared several boosting algorithms for diabetes classification and found that CatBoost achieved the highest accuracy on a benchmark dataset, attributing the gain to its ordered boosting and native handling of categorical features~\cite{Ganie2023ensemble}.  A NeurIPS benchmark study by Grinsztajn et~al.\ provided broader evidence: across 45 tabular datasets, tree-based models consistently outperformed deep learning architectures, with the gap widening on medium-sized datasets typical of clinical research~\cite{Grinsztajn2022trees}.  These findings motivate our inclusion of both tree and neural network families in a head-to-head comparison.
+
+\subsection{Korean NHIS-Based Studies}
+\label{sec:rw-nhis}
+
+South Korea's National Health Insurance Service (NHIS) covers approximately 97\% of the population and mandates biennial health examinations, producing one of the world's largest repositories of routine screening data~\cite{Lim2025nhis}.  Several groups have leveraged NHIS data for T2D prediction.
+
+Rhee et~al.\ developed a recurrent neural network (RNN-LSTM) on the NHIS-HEALS cohort (335{,}302 subjects) and reported strong predictive performance for incident diabetes~\cite{Rhee2021deeplearning}.  However, their study focused exclusively on deep learning architectures and did not include a systematic comparison against tree-based models.  Lee et~al.\ trained ML models on a larger Korean cohort ($n = 973{,}303$) using 18 features and validated externally on Japanese and UK cohorts, demonstrating cross-population generalizability~\cite{Lee2025multicohort}.  While their multi-cohort design is valuable, the study did not explore feature-set ablation or the effect of missing laboratory data on prediction.
+
+Our work extends this line of research by conducting an eight-model comparison---spanning gradient-boosted trees, neural networks, logistic regression, support vector machines, and decision trees---on nearly one million NHIS records from the 2024 examination cycle.
+
+\subsection{Clinical Risk Scores vs.\ ML}
+\label{sec:rw-risk-scores}
+
+Traditional screening instruments such as the Finnish Diabetes Risk Score (FINDRISC), the American Diabetes Association (ADA) risk test, and the Indian Diabetes Risk Score (IDRS) rely on questionnaire-based scoring with a limited number of variables.  Doddamani et~al.\ compared all three instruments in a South Indian population and reported moderate sensitivity, noting that each tool trades off sensitivity against specificity differently depending on the population~\cite{Doddamani2021comparative}.  The US Preventive Services Task Force (USPSTF) recommends screening adults aged 35--70 with overweight or obesity using BMI and age as primary triggers, but this guideline does not exploit multi-variable patterns available in routine laboratory panels~\cite{USPSTF2021screening}.
+
+ML approaches can incorporate richer feature sets from standard health checkup data---anthropometrics, blood pressure, liver enzymes, lipid profiles, and lifestyle indicators---simultaneously, potentially capturing nonlinear interactions that questionnaire scores miss.
+
+\subsection{Evaluation and Deployment Considerations}
+\label{sec:rw-evaluation}
+
+Moving from model development to clinical utility raises several methodological concerns.  Richardson et~al.\ confirmed that the Receiver Operating Characteristic Area Under the Curve (ROC-AUC) remains a valid discriminative metric even under substantial class imbalance, supporting its use in our 7.9\% positive-rate setting~\cite{Richardson2024roc}.  However, Deng et~al.\ cautioned that high AUC alone does not guarantee clinical value: threshold selection, calibration, and integration into clinical workflows are equally important~\cite{Deng2025highauc}.
+
+A further challenge is missing data.  Nijman et~al.\ reviewed 152 prediction model studies and found that the majority handled missing values inadequately---most commonly through complete-case analysis---and rarely reported missingness rates or evaluated the impact on model performance~\cite{Nijman2022missingdata}.  This finding is directly relevant to our setting, where approximately 66\% of NHIS records lack lipid panel results.
+
+Our work addresses the gaps identified above through five contributions: (1)~a systematic tree-versus-neural-network comparison on recent NHIS data, (2)~a three-tier feature ablation that explicitly quantifies the value of laboratory and lipid data, (3)~Platt-calibrated probability outputs rather than raw scores, (4)~threshold tuning optimized for screening sensitivity, and (5)~a deployed web-based screening tool that operationalizes the best model.

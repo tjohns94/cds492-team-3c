@@ -1,0 +1,159 @@
+\section{Results}
+\label{sec:results}
+
+We evaluated all eight models on the held-out test set ($n = 198{,}830$) using identical stratified splits (seed = 42). This section reports the model comparison, feature-set ablation, operating characteristics at the screening threshold, SHAP-based feature importance, and post-hoc calibration.
+
+\subsection{Eight-Model Comparison}
+\label{sec:results-comparison}
+
+Table~\ref{tab:model-comparison} summarizes ROC-AUC for all eight models. ROC-AUC is appropriate here because it evaluates ranking quality independently of the class imbalance~\cite{Richardson2024roc}.
+
+\begin{table}[ht]
+\centering
+\caption{Test-set ROC-AUC for all eight models. All models except the CatBoost ablation variants use the full 40-feature set.}
+\label{tab:model-comparison}
+\begin{tabular}{llc}
+\hline
+\textbf{Model} & \textbf{Features} & \textbf{ROC-AUC} \\
+\hline
+CatBoost (Full)          & 40 & \textbf{0.817} \\
+PyTorch Tabular Net      & 40 & 0.816 \\
+sklearn ANN/MLP          & 40 & 0.812 \\
+CatBoost (Core+Labs)     & 26 & 0.808 \\
+Logistic Regression      & 40 & 0.792 \\
+SVM (LinearSVC)          & 40 & 0.792 \\
+Decision Tree            & 40 & 0.776 \\
+CatBoost (Core Only)     & 15 & 0.775 \\
+\hline
+\end{tabular}
+\end{table}
+
+The top three models---CatBoost, PyTorch Tabular Net, and the sklearn MLP---achieved ROC-AUC values within 0.005 of each other despite fundamentally different architectures (gradient-boosted trees vs.\ neural networks). The linear models (Logistic Regression and LinearSVC) tied at 0.792, approximately 0.025 below the ensemble and neural approaches, while the single Decision Tree trailed at 0.776. Fig.~\ref{fig:roc-all} overlays the ROC curves for all eight models.
+
+CatBoost was selected as the production model for three reasons: (1) native exact SHAP value computation via ordered boosting, which supports the clinical transparency requirement; (2) native handling of missing values without imputation; and (3) substantially faster training and inference than the neural alternatives.
+
+\subsection{Feature-Set Ablation}
+\label{sec:results-ablation}
+
+To quantify the contribution of each data tier, we trained three CatBoost models with identical hyperparameters on progressively larger feature sets. Table~\ref{tab:ablation} reports the results.
+
+\begin{table}[ht]
+\centering
+\caption{CatBoost feature-set ablation. Delta is relative to the preceding tier.}
+\label{tab:ablation}
+\begin{tabular}{lcc}
+\hline
+\textbf{Feature Set} & \textbf{\# Features} & \textbf{ROC-AUC} \\
+\hline
+Core Only    & 15 & 0.775 \\
+Core + Labs  & 26 & 0.808 (+0.033) \\
+Full         & 40 & 0.817 (+0.009) \\
+\hline
+\end{tabular}
+\end{table}
+
+Adding six non-lipid laboratory values (hemoglobin, serum creatinine, AST, ALT, GGT, and derived ratios) to the 15 core features produced the largest single gain (+3.3 percentage points of AUC). Adding the lipid panel yielded only a marginal further improvement (+0.9 pp). Fig.~\ref{fig:roc-ablation} compares the three ROC curves.
+
+This result has practical significance: approximately 66\% of NHIS examinees do not receive a lipid panel. On the 130,256 test-set patients lacking lipid data, the full model achieved an AUC of 0.821, confirming that the lipid features add no predictive value when they are absent and that the Core+Labs tier is sufficient for the majority of the screening population.
+
+\subsection{Operating Characteristics}
+\label{sec:results-threshold}
+
+The operating threshold was set at the lowest probability achieving $\geq$85\% sensitivity on the validation set, yielding a threshold of 0.0659. Table~\ref{tab:confusion} reports the test-set confusion matrix at this threshold, and Fig.~\ref{fig:confusion} visualizes it.
+
+\begin{table}[ht]
+\centering
+\caption{Confusion matrix and derived metrics for the CatBoost production model at the screening threshold of 0.0659. Percentages are of the full test set ($n = 198{,}830$).}
+\label{tab:confusion}
+\begin{tabular}{lcc}
+\hline
+ & \textbf{Pred.\ Negative} & \textbf{Pred.\ Positive} \\
+\hline
+\textbf{Actual Negative} & 114,435 (57.6\%) & 68,701 (34.6\%) \\
+\textbf{Actual Positive} & 2,318 (1.2\%)    & 13,376 (6.7\%)  \\
+\hline
+\end{tabular}
+\vspace{4pt}
+
+\begin{tabular}{lclc}
+\hline
+Sensitivity & 85.2\% & Specificity & 62.5\% \\
+PPV         & 16.3\% & NPV         & 98.0\% \\
+\hline
+\end{tabular}
+\end{table}
+
+The model correctly identified 85.2\% of diabetic patients (13,376 of 15,694) while maintaining a negative predictive value of 98.0\%. The trade-off is a false positive rate of 37.5\% (68,701 of 183,136 non-diabetic patients flagged). This is an intentional design choice for a screening context: a false positive results in a follow-up fasting glucose test, whereas a false negative leaves diabetes undetected.
+
+\subsection{SHAP Feature Importance}
+\label{sec:results-shap}
+
+We computed global SHAP values~\cite{Lundberg2017shap} using CatBoost's native exact algorithm. Table~\ref{tab:shap} lists the ten most important features by mean absolute SHAP value, and Fig.~\ref{fig:shap} provides the full bar chart.
+
+\begin{table}[ht]
+\centering
+\caption{Top 10 features by mean $|\text{SHAP}|$ value for the CatBoost production model.}
+\label{tab:shap}
+\begin{tabular}{clc}
+\hline
+\textbf{Rank} & \textbf{Feature} & \textbf{Mean $|\text{SHAP}|$} \\
+\hline
+1  & Age                      & 0.936 \\
+2  & AST/ALT ratio            & 0.297 \\
+3  & GGT (log)                & 0.268 \\
+4  & LDL cholesterol          & 0.215 \\
+5  & Hemoglobin               & 0.182 \\
+6  & Waist-to-height ratio    & 0.153 \\
+7  & AST (log)                & 0.130 \\
+8  & Waist circumference      & 0.117 \\
+9  & TG/HDL ratio             & 0.114 \\
+10 & Pulse pressure           & 0.092 \\
+\hline
+\end{tabular}
+\end{table}
+
+Age dominated all other features, with a mean $|\text{SHAP}|$ of 0.936---more than three times the runner-up (AST/ALT ratio at 0.297). This is consistent with established clinical evidence that T2D risk increases substantially with age. The remaining top features span liver enzyme markers, lipid ratios, anthropometric measures, and hemoglobin, all of which are collected during routine health checkups.
+
+Notably, all nine binary missingness indicator flags had effectively zero SHAP importance (maximum $1.7 \times 10^{-7}$). This confirms that CatBoost's native missing-value handling fully subsumes explicit missingness indicators, rendering them redundant~\cite{Sisk2023imputation}.
+
+\subsection{Calibration}
+\label{sec:results-calibration}
+
+Raw CatBoost probabilities were recalibrated using Platt scaling~\cite{Platt1999calibration} fitted on the validation set. Because Platt scaling applies a monotonic logistic transform, the ROC-AUC remained unchanged. Fig.~\ref{fig:calibration} compares the pre- and post-calibration reliability diagrams.
+
+The calibrated model achieved a Brier score of 0.0643 and a precision--recall AUC (PR-AUC) of 0.2734. The relatively low PR-AUC reflects the 7.9\% base rate: even a well-ranking model produces modest precision when the positive class is rare. The Brier score confirms that calibrated probabilities are well-aligned with observed outcome frequencies, which is essential for the risk-tier system presented to clinicians.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{roc_all_models.png}
+\caption{ROC curves for all eight models on the held-out test set. CatBoost Full (AUC 0.817) is competitive with PyTorch Tabular Net (0.816) and sklearn MLP (0.812).}
+\label{fig:roc-all}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{catboost_feature_set_roc_comparison.png}
+\caption{ROC curves for three CatBoost feature set tiers: Core (0.775), Core+Labs (0.808), and Full (0.817).}
+\label{fig:roc-ablation}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{catboost_confusion_matrix.png}
+\caption{Confusion matrix for the production CatBoost model at the operating threshold of 0.0659. Sensitivity 85.2\%, specificity 62.5\%.}
+\label{fig:confusion}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{shap_importance.png}
+\caption{Top 20 features ranked by mean absolute SHAP value. Age dominates (0.936), followed by AST/ALT ratio (0.297) and log GGT (0.268).}
+\label{fig:shap}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{calibration_pre_post.png}
+\caption{Calibration reliability diagram before and after Platt scaling. Post-calibration probabilities align more closely with observed outcome frequencies.}
+\label{fig:calibration}
+\end{figure}

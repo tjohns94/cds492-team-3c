@@ -1,0 +1,87 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{hyperref}
+\hypersetup{hidelinks}
+
+\graphicspath{{figures/}}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\makeatletter
+\newcommand{\linebreakand}{%
+  \end{@IEEEauthorhalign}
+  \hfill\mbox{}\par
+  \mbox{}\hfill\begin{@IEEEauthorhalign}
+}
+\makeatother
+
+\title{Identifying undiagnosed type 2 diabetics using CatBoost modeling on one million Korean health checkup records}
+
+\author{
+\IEEEauthorblockN{Tyson Johnson}
+\IEEEauthorblockA{\textit{Dept.\ of Comp.\ \& Data Sciences} \\
+\textit{George Mason University}\\
+Fairfax, VA, USA\\
+tjohns94@gmu.edu}
+\and
+\IEEEauthorblockN{Alizeh Murtaza}
+\IEEEauthorblockA{\textit{Dept.\ of Comp.\ \& Data Sciences} \\
+\textit{George Mason University}\\
+Fairfax, VA, USA\\
+amurtaz2@gmu.edu}
+\and
+\IEEEauthorblockN{Nithila Neethi Devan}
+\IEEEauthorblockA{\textit{Dept.\ of Comp.\ \& Data Sciences} \\
+\textit{George Mason University}\\
+Fairfax, VA, USA\\
+nneethid@gmu.edu}
+\linebreakand
+\IEEEauthorblockN{Tariq Abdulhak}
+\IEEEauthorblockA{\textit{Dept.\ of Comp.\ \& Data Sciences} \\
+\textit{George Mason University}\\
+Fairfax, VA, USA\\
+tabdulha@gmu.edu}
+\and
+\IEEEauthorblockN{Mohamed Adel Slamani}
+\IEEEauthorblockA{\textit{Dept.\ of Comp.\ \& Data Sciences} \\
+\textit{George Mason University}\\
+Fairfax, VA, USA\\
+aslaman@gmu.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+We train a CatBoost gradient-boosted tree model on approximately one million Korean National Health Insurance Service checkup records to screen for undiagnosed type~2 diabetes without using fasting plasma glucose as an input feature. Comparing eight model configurations on identical data splits, CatBoost achieves an ROC-AUC of 0.817, matching neural network architectures while providing native SHAP interpretability. A three-tier feature set design shows that adding routine lab tests to core screening measurements yields the largest gain (+0.033 AUC), while the optional lipid panel adds only marginal improvement (+0.009). At a clinically tuned threshold the model achieves 85.2\% sensitivity and 98.0\% negative predictive value, promising for population-level screening. A deployed web-based tool translates calibrated probabilities into four risk tiers for clinical use.
+\end{abstract}
+
+\begin{IEEEkeywords}
+type 2 diabetes, machine learning, CatBoost, screening, health checkup, SHAP, gradient boosting, clinical decision support
+\end{IEEEkeywords}
+
+\input{sections/01-introduction}
+\input{sections/02-related-work}
+\input{sections/03-dataset}
+\input{sections/04-methodology}
+\input{sections/05-results}
+\input{sections/06-discussion}
+\input{sections/07-limitations}
+\input{sections/08-conclusion}
+
+\section*{Acknowledgments}
+This work was conducted as a project for the CDS-492 Capstone in Data Science at George Mason University. The authors thank Dr.\ Mohamed Adel Slamani for his guidance as faculty advisor. We also thank South Korea's National Health Insurance Service (NHIS) for providing healthcare data to the public through the Korean data portal. AI tools including Anthropic's Claude and OpenAI's ChatGPT were used to support development and optimize workflow during the project.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

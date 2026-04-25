@@ -1,0 +1,21 @@
+\section{Limitations and Future Work}
+\label{sec:limitations}
+
+Several limitations qualify the interpretation of our results.
+First, the model was trained exclusively on South Korean NHIS data; differences in diet, genetic predisposition, and healthcare access across populations mean that discrimination and calibration may not transfer to other countries without retraining~\cite{Sun2022idf}.
+Second, the diabetes label is a proxy derived from a single fasting plasma glucose reading (FPG $\geq$ 126~mg/dL) rather than a confirmed clinical diagnosis.
+The American Diabetes Association also recognizes HbA1c $\geq$ 6.5\% as a diagnostic criterion~\cite{ADA2024standards}, but HbA1c is not collected in the NHIS general health examination.
+This proxy cannot distinguish newly undiagnosed cases from patients with known but poorly controlled T2D, introducing label noise in both directions.
+Third, the cross-sectional design identifies individuals who likely have diabetes at the time of the examination; it does not predict future diabetes onset, limiting its use for incident-risk stratification.
+Fourth, operating at the recall-oriented threshold produces a 37.5\% false-positive rate (1 $-$ specificity).
+Although each false positive triggers only a confirmatory blood test, the downstream cost of additional testing may be substantial when deployed at national scale.
+Additionally, all reported metrics derive from a single random seed (42); we did not perform repeated splits or statistical significance testing, so the observed AUC differences between models may fall within sampling variability.
+We also did not conduct subgroup analyses stratified by age, sex, or BMI category, which would be necessary to assess whether model performance is equitable across clinically relevant subpopulations.
+Finally, patients who lack optional laboratory values may differ systematically from those with complete records---the no-lipid subgroup tends to be younger and healthier---so predictions made with minimal inputs may underestimate risk for atypical patients within that subgroup.
+
+Several directions could address these limitations.
+Multi-national validation using cohorts from countries with different demographic and dietary profiles would clarify the model's transferability~\cite{Lee2025multicohort}.
+Incorporating longitudinal NHIS records would enable prediction of incident diabetes rather than detection of existing cases.
+Integrating the model's calibrated risk score with established screening guidelines such as the USPSTF recommendation~\cite{USPSTF2021screening} or the FINDRISC questionnaire could produce hybrid protocols that leverage both clinical heuristics and data-driven pattern recognition.
+On the modeling side, the nine binary missingness indicator flags contributed negligible SHAP importance and could be removed to simplify the feature set without expected performance loss.
+Regional calibration of probability thresholds for populations with different baseline prevalence rates would also improve the clinical utility of the risk tiers when the model is applied outside South Korea~\cite{Sun2022idf}.

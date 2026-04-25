@@ -1,0 +1,95 @@
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Experimental Design}
+\label{subsec:experimental-design}
+
+We evaluated eight models on identical stratified splits to ensure a fair comparison. The 994,147 preprocessed records were divided into training (596,487; 60\%), validation (198,830; 20\%), and test (198,830; 20\%) sets using stratified random sampling with a fixed seed of 42, preserving the approximately 7.9\% positive class ratio across all partitions. The split was implemented as an 80/20 outer split followed by a 75/25 inner split of the training portion.
+
+The eight models span three architectural families: gradient-boosted trees (CatBoost in three feature-set configurations), neural networks (a scikit-learn MLPClassifier and a PyTorch Tabular Network with learned categorical embeddings), and linear/tree baselines (Logistic Regression, LinearSVC, and a Decision Tree). All models except the three CatBoost variants operated on the full 40-feature set.
+
+To address the class imbalance (approximately 11.7:1 negative-to-positive ratio), we applied inverse-frequency class weighting $[1.0,\; n_{\text{neg}} / n_{\text{pos}}]$ across most models. The MLPClassifier instead used minority upsampling to a 30\% positive rate during training.
+
+The primary evaluation metric was the Area Under the Receiver Operating Characteristic curve (ROC-AUC), computed on the held-out test set. We selected ROC-AUC because it is threshold-independent and remains informative under class imbalance~\cite{Richardson2024roc}.
+
+\subsection{CatBoost Configuration}
+\label{subsec:catboost-config}
+
+CatBoost employs ordered boosting with native categorical feature handling, which mitigates target leakage and eliminates the need for manual one-hot encoding~\cite{Prokhorenkova2018catboost}. These properties make it well suited for clinical screening data containing a mixture of numeric and categorical inputs.
+
+Table~\ref{tab:catboost-hyperparams} summarizes the hyperparameters for the production CatBoost model. The maximum number of boosting iterations was set to 1,500, with early stopping triggered after 100 consecutive rounds without validation-set improvement. The production model selected the checkpoint at iteration 1,324 as its best iteration.
+
+\begin{table}[ht]
+\centering
+\caption{CatBoost Hyperparameters (Production Model)}
+\label{tab:catboost-hyperparams}
+\begin{tabular}{ll}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Loss function        & Logloss \\
+Max iterations       & 1,500 \\
+Learning rate        & 0.03 \\
+Tree depth           & 6 \\
+L2 regularization    & 5.0 \\
+Early stopping       & 100 rounds \\
+Best iteration       & 1,324 \\
+Random seed          & 42 \\
+\hline
+\end{tabular}
+\end{table}
+
+CatBoost natively handles missing values by learning optimal split directions for absent features during training~\cite{Nijman2022missingdata}. This is particularly important in our dataset, where approximately 66\% of records lack the optional lipid panel. No imputation was performed.
+
+To quantify the marginal contribution of each data category, we trained three CatBoost variants on nested feature subsets: a \emph{Core} model (15 features: 12 numeric demographics and vitals plus 3 categorical indicators), a \emph{Core+Labs} model (26 features: Core plus 6 non-lipid laboratory values and 5 missingness flags), and a \emph{Full} model (40 features: Core+Labs plus 10 lipid-derived features and 4 lipid missingness flags). All three shared identical hyperparameters and training procedures, differing only in the input feature set.
+
+\subsection{Probability Calibration}
+\label{subsec:calibration}
+
+Raw CatBoost output probabilities can be poorly calibrated, meaning a predicted probability of 0.10 may not correspond to a true 10\% prevalence in that score band. We applied post-hoc Platt scaling~\cite{Platt1999calibration}, which fits a logistic regression model to the logit-transformed raw probabilities:
+\begin{equation}
+\label{eq:platt}
+P_{\text{cal}}(y=1 \mid x) = \sigma(a \cdot \text{logit}(\hat{p}(x)) + b),
+\end{equation}
+where $\hat{p}(x)$ is the raw CatBoost output, $\sigma$ is the sigmoid function, and the parameters $a$ and $b$ are fitted on the validation set.
+
+Because Platt scaling is a monotonic transformation, it preserves the ranking of predictions and leaves ROC-AUC unchanged. The calibrated model achieved a Brier score of 0.0643 on the test set, confirming improved reliability of the output probabilities. Calibration quality was assessed visually via a reliability diagram comparing pre- and post-calibration curves against the diagonal.
+
+\subsection{Clinical Threshold Selection}
+\label{subsec:threshold}
+
+In a screening context, a false negative (missed diabetes) carries substantially greater clinical cost than a false positive (an unnecessary follow-up blood test). We therefore optimized for high sensitivity rather than balanced accuracy.
+
+The operating threshold was selected as the lowest calibrated probability achieving at least 85\% recall on the validation set, with ties broken in favor of higher precision. This procedure yielded an operating threshold of 0.0659. At this threshold on the held-out test set, the model achieved 85.2\% sensitivity, 62.5\% specificity, 16.3\% positive predictive value (PPV), and 98.0\% negative predictive value (NPV). The low PPV is expected given the 7.9\% base rate and the deliberately recall-oriented threshold; a negative prediction rules out diabetes with high confidence.
+
+\subsection{Interpretability}
+\label{subsec:interpretability}
+
+Clinical adoption of machine learning models requires transparency in how predictions are formed~\cite{Deng2025highauc}. We used SHapley Additive exPlanations (SHAP)~\cite{Lundberg2017shap} to attribute each prediction to individual feature contributions.
+
+For the production CatBoost model, we computed exact Shapley values using TreeSHAP, which exploits the tree structure for polynomial-time computation. SHAP values were calculated on a random subsample of 5,000 test-set observations. Global feature importance was derived by averaging the absolute SHAP values across this sample, yielding a ranked list of the features most influential in the model's predictions (reported in Section~\ref{sec:results}).
+
+\subsection{Deployment}
+\label{subsec:deployment}
+
+To bridge the gap between a trained model and practical clinical use, we developed an end-to-end screening application. The backend is a FastAPI service that loads the production CatBoost model and Platt calibrator, accepts patient feature vectors via a REST API, and returns both a calibrated probability and a categorical risk tier. The frontend is a lightweight vanilla JavaScript interface designed for use by physicians or community health workers: the user enters available patient data, and the tool returns an interpretable risk assessment.
+
+Rather than presenting a single binary classification, the application assigns each patient to one of four risk tiers derived from the distribution of calibrated probabilities on the held-out test set. Table~\ref{tab:risk-tiers} defines the tier boundaries.
+
+\begin{table}[ht]
+\centering
+\caption{Risk Tier Definitions}
+\label{tab:risk-tiers}
+\begin{tabular}{llc}
+\hline
+\textbf{Tier} & \textbf{Quantile Range} & \textbf{Calibrated Probability} \\
+\hline
+Low       & 0--50th percentile   & $[0.0,\; 0.0457]$ \\
+Moderate  & 50--80th percentile  & $(0.0457,\; 0.1376]$ \\
+High      & 80--95th percentile  & $(0.1376,\; 0.2610]$ \\
+Very High & 95--100th percentile & $(0.2610,\; 1.0]$ \\
+\hline
+\end{tabular}
+\end{table}
+
+These quantile-based boundaries provide a clinically meaningful stratification. A ``Low'' risk patient falls below the population median probability and may require no immediate follow-up, while a ``Very High'' risk patient is in the top 5\% and warrants prompt confirmatory blood glucose testing. The tiered output also accommodates partial data: because CatBoost handles missing features natively, a health worker can submit whatever fields are available, and the system will still produce a valid risk estimate with an appropriate warning about reduced confidence when key laboratory values are absent.

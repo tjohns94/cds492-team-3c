@@ -1,0 +1,31 @@
+\section{Discussion}
+\label{sec:discussion}
+
+% Paragraph 1 -- Clinical implications
+The operating-point metrics reported in Table~\ref{tab:confusion} have direct implications for population-level screening.
+A sensitivity of 85.2\% means that the model identifies the large majority of individuals whose fasting plasma glucose (FPG) exceeds the diabetic threshold, while the 98.0\% negative predictive value (NPV) indicates that patients receiving a negative screen can be reassured with high confidence.
+The accompanying false-positive rate of 37.5\% is a deliberate consequence of the recall-oriented threshold: in a screening context, a false positive triggers only a confirmatory blood glucose test, not treatment, making the downstream cost low compared with a missed diagnosis.
+Traditional questionnaire-based risk scores such as ADA, IDRS, and FINDRISC have demonstrated lower sensitivity than laboratory-informed models when applied to population screening~\cite{Doddamani2021comparative}, and the USPSTF recommends screening adults aged 35--70 with overweight or obesity~\cite{USPSTF2021screening}, a criterion that misses metabolically unhealthy normal-weight individuals captured by our model's lab-based features.
+As Deng et~al.\ emphasize, translating a high area under the receiver operating characteristic curve (AUC) into clinical benefit requires attention to calibration, threshold choice, and deployment context~\cite{Deng2025highauc}; our Platt-calibrated probabilities and recall-targeted threshold address these concerns explicitly.
+
+% Paragraph 2 -- Tree models vs deep learning on tabular data
+CatBoost achieved an AUC of 0.817, matching the PyTorch Tabular network (0.816) and the sklearn multilayer perceptron (0.812) within 0.005 AUC (Table~\ref{tab:model-comparison}).
+This outcome is consistent with the NeurIPS finding of Grinsztajn et~al.\ that tree-based models match or outperform deep learning on typical tabular datasets~\cite{Grinsztajn2022trees}.
+Beyond raw discrimination, CatBoost offers practical advantages for clinical deployment: it provides exact Shapley values through its native TreeSHAP implementation rather than the approximate values produced by model-agnostic methods, it handles missing values internally without requiring a separate imputation step, and it trains and infers substantially faster than neural alternatives.
+For a screening tool that must be transparent to clinicians, the alignment of SHAP feature rankings with established risk factors---age, liver enzyme ratios, waist-to-height ratio, lipid ratios (Table~\ref{tab:shap})---is not merely convenient but necessary for building trust and facilitating adoption.
+
+% Paragraph 3 -- Missingness as signal
+Approximately 66\% of records in the NHIS dataset lack a lipid panel, reflecting the optional nature of this test in Korean biennial health examinations.
+CatBoost handles these missing values natively through learned default split directions, eliminating the need for imputation.
+We additionally engineered nine explicit binary missingness flags, yet all exhibited effectively zero SHAP importance (maximum $1.7 \times 10^{-7}$), indicating that the algorithm's internal mechanism fully subsumes the information these indicators were intended to capture.
+This finding is consistent with prior work showing that explicit missingness indicators provide limited additional value when the base learner already models absence~\cite{Singh2021missingness, Sisk2023imputation}.
+The practical consequence is favorable: the model degrades gracefully in clinical settings that do not routinely order lipid panels, and no external imputation pipeline is required at inference time.
+
+% Paragraph 4 -- Three-tier design and practical deployment
+The feature-set ablation in Table~\ref{tab:ablation} reveals an asymmetric cost--benefit structure.
+Adding non-lipid laboratory values to the core demographic and anthropometric features produces the largest AUC gain (+0.033, from 0.775 to 0.808), whereas appending the full lipid panel yields only a marginal further improvement (+0.009, to 0.817).
+This result carries policy implications: effective T2D screening is achievable without cholesterol tests, reducing per-patient cost and broadening coverage to settings where lipid panels are unavailable.
+Even the core-only model (15~features, AUC 0.775) provides useful risk stratification in resource-constrained environments.
+The alignment of top SHAP features---age, liver enzymes, waist circumference, lipid ratios---with well-established clinical risk factors supports the model's face validity and suggests that the learned patterns reflect genuine pathophysiological relationships rather than dataset artifacts.
+We operationalized these findings in a deployed web-based screening tool that maps calibrated probabilities to a four-tier risk stratification (low, moderate, high, very high), providing clinicians with an actionable output rather than a raw score.
+However, the model was trained exclusively on South Korean NHIS data, and its generalizability to other populations---with different dietary patterns, genetic backgrounds, and healthcare delivery structures---remains to be established through external validation.

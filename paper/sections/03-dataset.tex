@@ -1,0 +1,78 @@
+\section{Dataset and Preprocessing}
+\label{sec:dataset}
+
+\subsection{NHIS Health Examination Data}
+\label{sec:nhis}
+
+We use the 2024 Korean National Health Insurance Service (NHIS) General Health Examination dataset~\cite{NHIS2025dataset}, a publicly available collection of anonymized patient records from South Korea's universal biennial health screening program. The raw dataset contains approximately 1,000,000 records across 33 columns, encoded in cp949 (Korean). After domain validation and removal of records with missing fasting plasma glucose (FPG) values, 994,147 records remain for modeling.
+
+The binary diabetes label (\texttt{has\_diabetes}) is defined as FPG $\geq$ 126~mg/dL, following the American Diabetes Association (ADA) diagnostic threshold~\cite{ADA2024standards}. This proxy label reflects a single FPG reading rather than a confirmed clinical diagnosis; its limitations are discussed in Section~\ref{sec:limitations}. The positive class rate is approximately 7.9\%, reflecting the prevalence of undiagnosed or uncontrolled diabetes in this screening population. Crucially, FPG is excluded from the model's input features to avoid circular prediction---the label is derived from FPG, so including it as a predictor would trivialize the task~\cite{Han2020fpg}.
+
+\subsection{Three-Tier Feature Engineering}
+\label{sec:feature-tiers}
+
+We organize the 40 engineered features into three nested tiers (Table~\ref{tab:feature-tiers}) that reflect the clinical availability of different test components in the NHIS examination.
+
+\begin{table}[ht]
+\centering
+\caption{Three-tier feature set design. Each tier is a strict superset of the previous tier.}
+\label{tab:feature-tiers}
+\begin{tabular}{c l c p{3.8cm}}
+\hline
+\textbf{Tier} & \textbf{Name} & \textbf{Features} & \textbf{Description} \\
+\hline
+1 & Core & 15 & Demographics, anthropometrics, blood pressure, urine protein \\
+2 & Core + Labs & 26 & Adds liver enzymes, hemoglobin, creatinine, 5 missingness flags \\
+3 & Full & 40 & Adds lipid panel, lipid ratios, 4 lipid missingness flags \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Tier~1 (Core, 15 features)} includes sex, age, smoking status, alcohol consumption, and anthropometric measurements. Beyond raw height, weight, and waist circumference, we derive body mass index (BMI), waist-to-height ratio~\cite{Xu2013waist}, and the weight-adjusted waist index (WWI)~\cite{He2022anthropometric}. Blood pressure derivatives include systolic and diastolic readings, pulse pressure, and mean arterial pressure. Urine protein (dipstick grade) completes the tier. These features are available for every patient in the NHIS examination.
+
+\textbf{Tier~2 (Core + Labs, 26 features)} adds six non-lipid laboratory values: hemoglobin, serum creatinine, log-transformed AST, ALT, and gamma-glutamyl transferase (GGT), plus the AST/ALT ratio. Five binary missingness flags indicate whether each lab value was absent. This tier captures liver function and hematological markers associated with insulin resistance.
+
+\textbf{Tier~3 (Full, 40 features)} adds the lipid panel: total cholesterol, HDL cholesterol, LDL cholesterol, log-transformed triglycerides, non-HDL cholesterol, and three derived ratios (triglyceride/HDL, total cholesterol/HDL, LDL/HDL). Two summary features---\texttt{has\_complete\_lipid\_panel} and \texttt{n\_lipids\_available}---along with four lipid missingness flags round out the set.
+
+The tiered design is motivated by a practical constraint: the lipid panel is optional in NHIS examinations, and approximately 66\% of records lack lipid data entirely. The ablation across tiers quantifies each data category's marginal contribution and confirms that the model degrades gracefully when lipid results are unavailable (see Section~\ref{sec:results}).
+
+\subsection{Missingness Patterns}
+\label{sec:missingness}
+
+Approximately 66\% of records are missing the lipid panel because this test is optional in the standard NHIS health examination. Rather than imputing these values, we preserve native missingness and augment the feature set with explicit binary missingness indicators for all lab features. CatBoost handles missing values natively during tree construction~\cite{Singh2021missingness}, learning optimal split directions for absent values without requiring imputation.
+
+The missingness is informative: patients who decline the optional lipid test tend to be younger and healthier, introducing a selection bias. We encode this pattern explicitly through the missingness flags and the \texttt{has\_complete\_lipid\_panel} indicator, allowing the model to leverage test-ordering behavior as a signal~\cite{Nijman2022missingdata}. We discuss the implications of this informative missingness for model generalization in Section~\ref{sec:limitations}.
+
+\subsection{Preprocessing Pipeline}
+\label{sec:preprocessing}
+
+The preprocessing pipeline consists of four stages, illustrated in Fig.~\ref{fig:pipeline}.
+
+\textbf{Domain validation.} Out-of-range values (e.g., physiologically implausible blood pressure or anthropometric measurements) are set to NaN using constraint bounds defined in a configuration file. This prevents extreme outliers from distorting downstream feature engineering.
+
+\textbf{Log transforms.} AST, ALT, GGT, and triglycerides exhibit right-skewed distributions. We apply the $\log(1+x)$ transform to each, producing \texttt{log\_ast}, \texttt{log\_alt}, \texttt{log\_ggt}, and \texttt{log\_triglycerides}.
+
+\textbf{Age encoding.} The NHIS encodes age as a 5-year band code (integer 5--18). We convert this to a continuous midpoint estimate via $\text{age} = \text{code} \times 5 - 2.5$, stored as \texttt{age\_years\_mid}.
+
+\textbf{Stratified splitting.} The 994,147 records are divided into training (596,487; 60\%), validation (198,830; 20\%), and test (198,830; 20\%) sets using stratified sampling (seed = 42) to preserve the class distribution across all splits. The validation set serves for early stopping, threshold selection, and probability calibration; the test set is held out until final evaluation. Fig.~\ref{fig:missingness} shows the distribution of lipid panel missingness by age, and Fig.~\ref{fig:prevalence} shows diabetes prevalence stratified by age and sex.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{data_preparation_pipeline_diagram.png}
+\caption{Data preparation pipeline from raw NHIS data through domain validation, feature engineering, and three-tier feature set construction.}
+\label{fig:pipeline}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{lipid_panel_missingness_by_age_facets.png}
+\caption{Lipid panel missingness rates by age group. Younger patients are more likely to lack lipid data, reflecting the optional nature of the test.}
+\label{fig:missingness}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{diabetes_prevalence_by_age_and_gender.png}
+\caption{Distribution of diabetes prevalence by age group and sex in the NHIS 2024 dataset.}
+\label{fig:prevalence}
+\end{figure}
