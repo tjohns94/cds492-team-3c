@@ -40,6 +40,8 @@ paper/*.out
 paper/*.synctex.gz
 paper/*.toc
 paper/main.pdf
+paper/preview_page*.png
+paper/compile.log
 
 # Jupyter
 .ipynb_checkpoints/
