@@ -1,42 +1,126 @@
-# CDS-492 Team 3c: ML-Based Type 2 Diabetes Screening
+# T2D Risk Screener
 
-Machine learning-based screening for undiagnosed Type 2 Diabetes using the 2024 South Korean National Health Insurance Service (NHIS) General Health Examination dataset.
+**Machine learning-based screening for undiagnosed Type 2 Diabetes using ~1 million Korean National Health Insurance Service (NHIS) health checkup records.**
 
-**Course:** CDS-492 Capstone in Data Science, George Mason University, College of Science
+CDS-492 Capstone in Data Science | George Mason University | Spring 2026
 
-**Authors:** Tyson Johnson (Team Lead), Alizeh Murtaza, Nithila Neethi Devan, Tariq Abdulhak
+<p align="center">
+  <img src="code/t2d-screener/figures/screener_ui.png" alt="T2D Risk Screener web interface showing risk assessment with SHAP explanations" width="800">
+</p>
 
-**Faculty Advisor:** Dr. Mohamed Adel Slamani
+## Overview
 
-## Project Structure
+An estimated 44.7% of the 537 million adults with diabetes worldwide are undiagnosed. Routine health checkups collect anthropometric, blood pressure, and laboratory data that collectively contain latent signals for undiagnosed diabetes, but clinicians reviewing individual test results in isolation can miss the subtle multi-variable patterns that a machine learning model can detect.
 
-- `code/t2d-screener/` -- Canonical codebase: CatBoost model, FastAPI backend, web frontend, SHAP explanations. See its [README](code/t2d-screener/README.md) and [MODEL_CARD](code/t2d-screener/MODEL_CARD.md) for details.
-- `code/notebooks/` -- Supplementary analysis notebooks (9-experiment walkthrough, 8-model ROC comparison).
-- `paper/` -- IEEE conference paper (LaTeX source, compiled PDF, figures).
-- `presentations/` -- Final poster, comprehensive slide deck, and weekly module submissions.
-- `docs/` -- Data dictionary and column descriptions.
-- `_meta/` -- Agent reports and planning artifacts used during project consolidation.
-- `_archive/` -- Full copies of original source folders and raw data files (not tracked in git).
+This project trains a **CatBoost** gradient-boosted tree classifier on the 2024 NHIS General Health Examination dataset (~994,000 anonymized adult records) to flag individuals at elevated risk of undiagnosed T2D -- defined as fasting plasma glucose (FPG) >= 126 mg/dL -- using only indirect metabolic indicators available from a standard health checkup. FPG itself is excluded from the model inputs to avoid circular prediction.
+
+A deployed **web-based screening tool** translates the model's calibrated probabilities into four actionable risk tiers (Low / Moderate / High / Very High) with per-prediction SHAP explanations.
 
 ## Key Results
 
-| Metric | Value |
-|--------|-------|
-| Best Model | CatBoost (40 features) |
-| Test ROC-AUC | 0.8164 |
-| Test PR-AUC | 0.2734 |
-| Brier Score | 0.0643 |
-| Screening Threshold | 0.0659 (tuned for 85%+ sensitivity) |
+<table>
+  <tr>
+    <td width="50%">
+      <table>
+        <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>ROC-AUC</td><td><b>0.817</b></td></tr>
+        <tr><td>Sensitivity</td><td><b>85.2%</b></td></tr>
+        <tr><td>Specificity</td><td>62.5%</td></tr>
+        <tr><td>NPV</td><td><b>98.0%</b></td></tr>
+        <tr><td>PR-AUC</td><td>0.273</td></tr>
+        <tr><td>Brier Score</td><td>0.064</td></tr>
+      </table>
+    </td>
+    <td width="50%">
+      <img src="code/t2d-screener/figures/roc_all_models.png" alt="ROC curves for all eight models" width="400">
+    </td>
+  </tr>
+</table>
+
+Eight model configurations were compared on identical stratified splits. CatBoost matched neural network architectures (PyTorch Tabular Net, sklearn MLP) within 0.005 AUC while providing native exact SHAP values, native missing-value handling, and CPU-only inference.
+
+## Feature Importance
+
+<p align="center">
+  <img src="code/t2d-screener/figures/shap_importance.png" alt="Top features by mean absolute SHAP value" width="550">
+</p>
+
+Age dominates all other features (mean |SHAP| = 0.936), followed by liver enzyme ratios, lipid markers, and anthropometric measures -- all consistent with established clinical risk factors for T2D.
+
+**Three-tier feature ablation** reveals that adding routine lab tests to core screening measurements yields the largest gain (+0.033 AUC), while the optional lipid panel adds only marginal improvement (+0.009):
+
+| Feature Set | Features | ROC-AUC |
+|-------------|----------|---------|
+| Core Only | 15 | 0.775 |
+| Core + Labs | 26 | 0.808 |
+| Full | 40 | **0.817** |
+
+## Repository Structure
+
+```
+.
+├── paper/                     # IEEE conference paper (LaTeX source + compiled PDF)
+│   ├── main.tex               # Paper entry point
+│   ├── sections/              # Modular section files (01-08)
+│   ├── figures/               # Paper figures
+│   └── references.bib         # Bibliography
+│
+├── code/
+│   ├── t2d-screener/          # Production codebase
+│   │   ├── api/               # FastAPI backend
+│   │   ├── frontend/          # Vanilla JS screening interface
+│   │   ├── src/               # Model, preprocessing, config
+│   │   ├── models/            # Trained CatBoost model + calibrator + metadata
+│   │   ├── figures/           # Generated figures (ROC, SHAP, confusion matrix)
+│   │   ├── scripts/           # Figure generation scripts
+│   │   ├── notebooks/         # Tutorial notebook
+│   │   ├── train.py           # Training pipeline
+│   │   ├── MODEL_CARD.md      # Model documentation
+│   │   └── README.md          # Setup and usage guide
+│   └── notebooks/             # Exploratory analysis notebooks
+│
+├── presentations/
+│   ├── deck/                  # Final milestone presentation (PPTX)
+│   ├── modules/               # Weekly milestone submissions (PDF)
+│   └── poster/                # COS Colloquium research poster
+│
+└── docs/                      # Data dictionary and column descriptions
+```
+
+## Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/tjohns94/cds492-team-3c.git
+cd cds492-team-3c/code/t2d-screener
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the screening tool
+uvicorn api.main:app --reload
+# Open http://localhost:8000 in your browser
+```
+
+See [`code/t2d-screener/README.md`](code/t2d-screener/README.md) for full setup, training, and figure regeneration instructions.
 
 ## Data Source
 
-2024 NHIS General Health Examination dataset (~1M anonymized patient records):
-https://www.data.go.kr/en/data/15007122/fileData.do
+[2024 NHIS General Health Examination](https://www.data.go.kr/en/data/15007122/fileData.do) -- a publicly released random sample of ~1 million adult subscribers who received a health checkup in 2024. The raw data is not included in this repository; download it from the Korean data portal using the link above.
 
-## Reproduction
+## Team
 
-See `code/t2d-screener/README.md` for setup and training instructions.
+| Name | Role | Contact |
+|------|------|---------|
+| **Tyson Johnson** | Team Lead | tjohns94@gmu.edu |
+| **Alizeh Murtaza** | Team Member | amurtaz2@gmu.edu |
+| **Nithila Neethi Devan** | Team Member | nneethid@gmu.edu |
+| **Tariq Abdulhak** | Team Member | tabdulha@gmu.edu |
+
+**Faculty Advisor:** Dr. Mohamed Adel Slamani (aslaman@gmu.edu)
+
+Dept. of Computational and Data Sciences, George Mason University
 
 ## License
 
-MIT License. See [`code/t2d-screener/LICENSE`](code/t2d-screener/LICENSE).
+MIT License. See [LICENSE](LICENSE).
