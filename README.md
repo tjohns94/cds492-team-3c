@@ -5,6 +5,7 @@
 ![ROC-AUC](https://img.shields.io/badge/ROC--AUC-0.817-blue)
 ![Sensitivity](https://img.shields.io/badge/Sensitivity-85.2%25-green)
 ![NPV](https://img.shields.io/badge/NPV-98.0%25-green)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tjohns94/cds492-team-3c/blob/main/code/notebooks/t2d_screening_tutorial.ipynb)
 
 **Machine learning-based screening for undiagnosed Type 2 Diabetes using ~1 million Korean National Health Insurance Service (NHIS) health checkup records.**
 
@@ -83,7 +84,7 @@ Age dominates all other features (mean |SHAP| = 0.936), followed by liver enzyme
 │   │   ├── train.py           # Training pipeline
 │   │   ├── MODEL_CARD.md      # Model documentation
 │   │   └── README.md          # Setup and usage guide
-│   └── notebooks/             # Exploratory analysis notebooks
+│   └── notebooks/             # Tutorial notebook + exploratory analysis
 │
 ├── presentations/
 │   ├── deck/                  # Final milestone presentation (PPTX)
@@ -92,6 +93,14 @@ Age dominates all other features (mean |SHAP| = 0.936), followed by liver enzyme
 │
 └── docs/                      # Data dictionary and column descriptions
 ```
+
+## Tutorial Notebook
+
+A Kaggle-style end-to-end walkthrough of the entire project is available at [`code/notebooks/t2d_screening_tutorial.ipynb`](code/notebooks/t2d_screening_tutorial.ipynb). It covers data loading, cleaning, EDA, feature engineering, training and comparing eight model families, calibration, threshold selection, SHAP analysis, and deployment, with anchor-linked sections and figure-by-figure captions.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tjohns94/cds492-team-3c/blob/main/code/notebooks/t2d_screening_tutorial.ipynb)
+
+The dataset is downloaded automatically from this repo's `v1.0-data` release asset on first run.
 
 ## Getting Started
 
